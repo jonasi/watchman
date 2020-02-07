@@ -215,10 +215,10 @@ func (c *Client) handleUnilateral(watches []*watch, v interface{}) {
 		return
 	}
 
-	// todo(isao) - add SubscribeEvent here when we add that functionality
 	var data struct {
 		base
 		*LogEvent
+		*SubscribeEvent
 	}
 
 	if err := bser.UnmarshalValue(msg, &data); err != nil {
@@ -229,6 +229,8 @@ func (c *Client) handleUnilateral(watches []*watch, v interface{}) {
 	var d interface{}
 	if data.LogEvent != nil {
 		d = data.LogEvent
+	} else if data.SubscribeEvent != nil {
+		d = data.SubscribeEvent
 	}
 
 	if d == nil {
