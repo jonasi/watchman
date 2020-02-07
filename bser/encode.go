@@ -144,6 +144,25 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 				}
 			}
 			return appendItem(buf, 0x01, b), nil
+		case reflect.Map:
+			num := r.Len()
+			b, err := encode(nil, num)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, k := range r.MapKeys() {
+				v := r.MapIndex(k)
+				b, err = encode(b, k.Interface())
+				if err != nil {
+					return nil, err
+				}
+				b, err = encode(b, v.Interface())
+				if err != nil {
+					return nil, err
+				}
+			}
+			return appendItem(buf, 0x01, b), nil
 		default:
 			return nil, fmt.Errorf("Unsupported type: %s", r.Type().Kind())
 		}
