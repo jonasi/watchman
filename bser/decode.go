@@ -119,7 +119,6 @@ func decodeObject(r io.Reader, dest reflect.Value) error {
 	if err != nil {
 		return err
 	}
-
 	switch k := dest.Kind(); k {
 	case reflect.Map:
 		if dest.Type().Key().Kind() != reflect.String {

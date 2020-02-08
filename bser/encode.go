@@ -120,6 +120,7 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 				return nil, err
 			}
 			for i := 0; i < r.Len(); i++ {
+				// TODO: special behaviour for slice of templated objects: https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
 				if b, err = encode(b, r.Index(i).Interface()); err != nil {
 					return nil, err
 				}
@@ -133,12 +134,13 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			}
 
 			for i := 0; i < num; i++ {
-				f := r.Field(i)
-				b, err = encode(b, r.Type().Field(i).Name)
+				fieldName := r.Type().Field(i).Name
+				b, err = encode(b, fieldName)
 				if err != nil {
 					return nil, err
 				}
-				b, err = encode(b, f)
+				fv := r.Field(i)
+				b, err = encode(b, fv.Interface())
 				if err != nil {
 					return nil, err
 				}
