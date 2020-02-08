@@ -8,14 +8,19 @@ import (
 	"reflect"
 )
 
-// Marshal returns the BSER encoding of d
-func Marshal(d interface{}) ([]byte, error) {
+// MarshalPDU returns the BSER encoding of d
+func MarshalPDU(d interface{}) ([]byte, error) {
 	var b bytes.Buffer
 	if err := NewEncoder(&b).Encode(d); err != nil {
 		return nil, err
 	}
 
 	return b.Bytes(), nil
+}
+
+// MarshalValue returns the BSER encoding of d
+func MarshalValue(d interface{}) ([]byte, error) {
+	return encode(nil, d)
 }
 
 // NewEncoder returns an initialized Encoder

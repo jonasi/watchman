@@ -8,6 +8,20 @@ import (
 	"reflect"
 )
 
+var (
+	emptyValue = reflect.Value{}
+)
+
+// UnmarshalPDU unmarshal b into dest
+func UnmarshalPDU(b []byte, dest interface{}) error {
+	return NewDecoder(bytes.NewReader(b)).Decode(dest)
+}
+
+// UnmarshalValue unmarshal b into dest
+func UnmarshalValue(b []byte, dest interface{}) error {
+	return decodeValue(bytes.NewReader(b), reflect.ValueOf(dest), nil)
+}
+
 // NewDecoder returns an initialized Decoder
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r}
@@ -31,7 +45,7 @@ func (d *Decoder) Decode(dest interface{}) error {
 	}
 
 	var size int
-	if err := decodeValue(d.r, reflect.ValueOf(&size)); err != nil {
+	if err := decodeValue(d.r, reflect.ValueOf(&size), nil); err != nil {
 		return err
 	}
 
@@ -40,105 +54,165 @@ func (d *Decoder) Decode(dest interface{}) error {
 		return err
 	}
 
-	return decodeValue(bytes.NewReader(buf), reflect.ValueOf(dest))
+	return decodeValue(bytes.NewReader(buf), reflect.ValueOf(dest), nil)
 }
 
-func decodeValue(r io.Reader, dest reflect.Value) error {
-	if dest.Kind() != reflect.Ptr {
+func decodeValue(r io.Reader, dest reflect.Value, buf *[]byte) error {
+	if dest != emptyValue && dest.Kind() != reflect.Ptr {
 		return fmt.Errorf("Invalid dest passed in. Expected ptr, found: %s", dest.Kind())
 	}
 
-	dest = dest.Elem()
+	var (
+		u      Unmarshaler
+		err    error
+		offset = 0
+	)
 
-	buf := make([]byte, 1)
-	if _, err := r.Read(buf); err != nil {
+	if dest != emptyValue && dest.Type().Implements(typUnmarshaler) {
+		u = dest.Interface().(Unmarshaler)
+		if buf == nil {
+			buf = &[]byte{}
+			offset = 0
+		} else {
+			offset = len(*buf)
+		}
+		dest = emptyValue
+	}
+
+	if dest != emptyValue {
+		dest = dest.Elem()
+	}
+
+	l := make([]byte, 1)
+	if _, err := r.Read(l); err != nil {
 		return err
 	}
 
-	switch buf[0] {
-	case 0x00:
-		return decodeArray(r, dest)
-	case 0x01:
-		return decodeObject(r, dest)
-	case 0x02:
-		return decodeString(r, dest)
-	case 0x03:
-		return decodeInt8(r, dest)
-	case 0x04:
-		return decodeInt16(r, dest)
-	case 0x05:
-		return decodeInt32(r, dest)
-	case 0x06:
-		return decodeInt64(r, dest)
-	case 0x07:
-		return decodeReal(r, dest)
-	case 0x08:
-		return decodeBool(true, dest)
-	case 0x09:
-		return decodeBool(false, dest)
-	case 0x0a:
-		dest.Set(reflect.ValueOf(nil))
-	case 0x0b:
-		return decodeTemplate(r, dest)
-	default:
-		return fmt.Errorf("Invalid type marker found: %x", buf[0])
+	if buf != nil {
+		*buf = append(*buf, l...)
 	}
-	return nil
+
+	switch l[0] {
+	case 0x00:
+		err = decodeArray(r, dest, buf)
+	case 0x01:
+		err = decodeObject(r, dest, buf)
+	case 0x02:
+		err = decodeString(r, dest, buf)
+	case 0x03:
+		err = decodeInt8(r, dest, buf)
+	case 0x04:
+		err = decodeInt16(r, dest, buf)
+	case 0x05:
+		err = decodeInt32(r, dest, buf)
+	case 0x06:
+		err = decodeInt64(r, dest, buf)
+	case 0x07:
+		err = decodeReal(r, dest, buf)
+	case 0x08:
+		if dest != emptyValue {
+			err = decodeBool(true, dest)
+		}
+	case 0x09:
+		if dest != emptyValue {
+			err = decodeBool(false, dest)
+		}
+	case 0x0a:
+		if dest != emptyValue {
+			dest.Set(reflect.ValueOf(nil))
+		}
+	case 0x0b:
+		err = decodeTemplate(r, dest, buf)
+	default:
+		err = fmt.Errorf("Invalid type marker found: %x", l[0])
+	}
+
+	if err == nil && u != nil {
+		err = u.UnmarshalBSER((*buf)[offset:])
+	}
+
+	return err
 }
 
-func decodeArray(r io.Reader, dest reflect.Value) error {
+func decodeArray(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typGenericSlice)
 	if err != nil {
 		return err
 	}
 
-	if dest.Kind() != reflect.Slice {
+	if dest != emptyValue && dest.Kind() != reflect.Slice {
 		return fmt.Errorf("Expected slice, found %s", dest.Kind())
 	}
 
 	var length int
-	if err := decodeValue(r, reflect.ValueOf(&length)); err != nil {
+	if err = decodeValue(r, reflect.ValueOf(&length), buf); err != nil {
 		return err
 	}
 
-	dest.Set(reflect.MakeSlice(dest.Type(), length, length))
+	if dest != emptyValue {
+		dest.Set(reflect.MakeSlice(dest.Type(), length, length))
+	}
+
 	for i := 0; i < length; i++ {
-		v := reflect.New(dest.Type().Elem())
-		if err := decodeValue(r, v); err != nil {
+		v := emptyValue
+		if dest != emptyValue {
+			v = reflect.New(dest.Type().Elem())
+		}
+
+		if err := decodeValue(r, v, buf); err != nil {
 			return err
 		}
 
-		dest.Index(i).Set(v.Elem())
+		if dest != emptyValue {
+			dest.Index(i).Set(v.Elem())
+		}
 	}
 
 	return nil
 }
 
-func decodeObject(r io.Reader, dest reflect.Value) error {
+func decodeObject(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typGenericMap)
 	if err != nil {
 		return err
 	}
 	switch k := dest.Kind(); k {
+	case reflect.Invalid:
+		if buf == nil {
+			panic("should only get reflect.Invalid if buf is non-nil")
+		}
+		var fields int
+		if err := decodeValue(r, reflect.ValueOf(&fields), buf); err != nil {
+			return err
+		}
+		for i := 0; i < fields; i++ {
+			if err := decodeValue(r, emptyValue, buf); err != nil {
+				return err
+			}
+
+			if err := decodeValue(r, emptyValue, buf); err != nil {
+				return err
+			}
+		}
 	case reflect.Map:
 		if dest.Type().Key().Kind() != reflect.String {
 			return fmt.Errorf("Map must have key type of string, found: %s", dest.Type().Key())
 		}
 
 		var fields int
-		if err := decodeValue(r, reflect.ValueOf(&fields)); err != nil {
+		if err := decodeValue(r, reflect.ValueOf(&fields), buf); err != nil {
 			return err
 		}
 
 		for i := 0; i < fields; i++ {
 			var field string
 			fieldV := reflect.ValueOf(&field)
-			if err := decodeValue(r, fieldV); err != nil {
+			if err := decodeValue(r, fieldV, buf); err != nil {
 				return err
 			}
 
 			v := reflect.New(dest.Type().Elem())
-			if err := decodeValue(r, v); err != nil {
+			if err := decodeValue(r, v, buf); err != nil {
 				return err
 			}
 			dest.SetMapIndex(fieldV.Elem(), v.Elem())
@@ -146,13 +220,13 @@ func decodeObject(r io.Reader, dest reflect.Value) error {
 	case reflect.Struct:
 		tfields := fields(dest.Type())
 		var fields int
-		if err := decodeValue(r, reflect.ValueOf(&fields)); err != nil {
+		if err := decodeValue(r, reflect.ValueOf(&fields), buf); err != nil {
 			return err
 		}
 
 		for i := 0; i < fields; i++ {
 			var field string
-			if err := decodeValue(r, reflect.ValueOf(&field)); err != nil {
+			if err := decodeValue(r, reflect.ValueOf(&field), buf); err != nil {
 				return err
 			}
 
@@ -161,7 +235,7 @@ func decodeObject(r io.Reader, dest reflect.Value) error {
 				return fmt.Errorf("Field %s not found", field)
 			}
 
-			if err := decodeValue(r, dest.FieldByIndex(f.Index).Addr()); err != nil {
+			if err := decodeValue(r, dest.FieldByIndex(f.Index).Addr(), buf); err != nil {
 				return err
 			}
 		}
@@ -171,102 +245,133 @@ func decodeObject(r io.Reader, dest reflect.Value) error {
 	return nil
 }
 
-func decodeString(r io.Reader, dest reflect.Value) error {
+func decodeString(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typString)
 	if err != nil {
 		return err
 	}
 
 	var size int
-	if err := decodeValue(r, reflect.ValueOf(&size)); err != nil {
+	if err := decodeValue(r, reflect.ValueOf(&size), buf); err != nil {
 		return err
 	}
 
-	buf := make([]byte, size)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, size)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	dest.SetString(string(buf))
+	if dest != emptyValue {
+		dest.SetString(string(b))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
 	return nil
 }
 
-func decodeInt8(r io.Reader, dest reflect.Value) error {
+func decodeInt8(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typInt8)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 1)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, 1)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	dest.SetInt(int64(buf[0]))
+	if dest != emptyValue {
+		dest.SetInt(int64(b[0]))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
 	return nil
 }
 
-func decodeInt16(r io.Reader, dest reflect.Value) error {
+func decodeInt16(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typInt16)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 2)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, 2)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	v := order.Uint16(buf)
-	dest.SetInt(int64(v))
+	if dest != emptyValue {
+		v := order.Uint16(b)
+		dest.SetInt(int64(v))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
 	return nil
 }
 
-func decodeInt32(r io.Reader, dest reflect.Value) error {
+func decodeInt32(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typInt32)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 4)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, 4)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	v := order.Uint32(buf)
-	dest.SetInt(int64(v))
+	if dest != emptyValue {
+		v := order.Uint32(b)
+		dest.SetInt(int64(v))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
 	return nil
 }
 
-func decodeInt64(r io.Reader, dest reflect.Value) error {
+func decodeInt64(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typInt64)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 8)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, 8)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	v := order.Uint64(buf)
-	dest.SetInt(int64(v))
+	if dest != emptyValue {
+		v := order.Uint64(b)
+		dest.SetInt(int64(v))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
 	return nil
 }
 
-func decodeReal(r io.Reader, dest reflect.Value) error {
+func decodeReal(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typFloat64)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 8)
-	if _, err := r.Read(buf); err != nil {
+	b := make([]byte, 8)
+	if _, err := r.Read(b); err != nil {
 		return err
 	}
 
-	v := order.Uint64(buf)
-	dest.SetFloat(math.Float64frombits(v))
+	if dest != emptyValue {
+		v := order.Uint64(b)
+		dest.SetFloat(math.Float64frombits(v))
+	}
+	if buf != nil {
+		*buf = append(*buf, b...)
+	}
+
 	return nil
 }
 
@@ -280,44 +385,58 @@ func decodeBool(v bool, dest reflect.Value) error {
 	return nil
 }
 
-func decodeTemplate(r io.Reader, dest reflect.Value) error {
+func decodeTemplate(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	dest, err := prep(dest, typGenericSlice)
 	if err != nil {
 		return err
 	}
 
-	if dest.Kind() != reflect.Slice {
+	if dest != emptyValue && dest.Kind() != reflect.Slice {
 		return fmt.Errorf("Expected slice, found %s", dest.Kind())
 	}
 
 	var fieldNames []string
-	if err := decodeValue(r, reflect.ValueOf(&fieldNames)); err != nil {
+	if err := decodeValue(r, reflect.ValueOf(&fieldNames), buf); err != nil {
 		return err
 	}
 
 	var length int
-	if err := decodeValue(r, reflect.ValueOf(&length)); err != nil {
+	if err := decodeValue(r, reflect.ValueOf(&length), buf); err != nil {
 		return err
 	}
 
-	dest.Set(reflect.MakeSlice(dest.Type(), length, length))
+	if dest != emptyValue {
+		dest.Set(reflect.MakeSlice(dest.Type(), length, length))
+	}
+
 	var sfields structFields
 	for i := 0; i < length; i++ {
-		item := dest.Index(i)
-		item, err = prep(item, typGenericMap)
-		if err != nil {
-			return err
-		}
+		item := emptyValue
+		if dest != emptyValue {
+			item = dest.Index(i)
+			item, err = prep(item, typGenericMap)
+			if err != nil {
+				return err
+			}
 
-		if item.Kind() != reflect.Map && item.Kind() != reflect.Struct {
-			return fmt.Errorf("Expected slice of struct or slice of map, found slice of %s", item.Kind())
+			if item.Kind() != reflect.Map && item.Kind() != reflect.Struct {
+				return fmt.Errorf("Expected slice of struct or slice of map, found slice of %s", item.Kind())
+			}
 		}
 
 		for _, field := range fieldNames {
 			switch item.Kind() {
+			case reflect.Invalid:
+				if buf == nil {
+					panic("should only get reflect.Invalid if buf is non-nil")
+				}
+				v := emptyValue
+				if err := decodeValue(r, v, buf); err != nil {
+					return err
+				}
 			case reflect.Map:
 				v := reflect.New(item.Type().Elem())
-				if err := decodeValue(r, v); err != nil {
+				if err := decodeValue(r, v, buf); err != nil {
 					return err
 				}
 				item.SetMapIndex(reflect.ValueOf(field), v.Elem())
@@ -331,7 +450,7 @@ func decodeTemplate(r io.Reader, dest reflect.Value) error {
 					return fmt.Errorf("Field %s not found", field)
 				}
 
-				if err := decodeValue(r, item.FieldByIndex(f.Index).Addr()); err != nil {
+				if err := decodeValue(r, item.FieldByIndex(f.Index).Addr(), buf); err != nil {
 					return err
 				}
 			}
