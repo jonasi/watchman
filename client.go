@@ -32,9 +32,15 @@ type Client struct {
 	conn     net.Conn
 	enc      enc
 	dec      dec
-	encMu    sync.Mutex
 	initOnce sync.Once
 	initErr  error
+	reqCh    chan request
+}
+
+type request struct {
+	dest  interface{}
+	args  []interface{}
+	errCh chan error
 }
 
 func (c *Client) init() error {
@@ -61,9 +67,67 @@ func (c *Client) init() error {
 			c.enc = bser.NewEncoder(c.conn)
 			c.dec = bser.NewDecoder(c.conn)
 		}
+
+		c.reqCh = make(chan request)
+		decCh := make(chan interface{})
+
+		go c.readPDUs(decCh)
+		go c.handleReqs(decCh)
 	})
 
 	return c.initErr
+}
+
+func (c *Client) readPDUs(ch chan interface{}) {
+	for {
+		var m bser.RawMessage
+		if err := c.dec.Decode(&m); err != nil {
+			ch <- err
+		} else {
+			ch <- m
+		}
+	}
+}
+
+func (c *Client) handleReqs(ch chan interface{}) {
+	var (
+		activeReq  *request
+		queuedReqs = []*request{}
+	)
+
+	processNext := func() {
+		if activeReq != nil || len(queuedReqs) == 0 {
+			return
+		}
+
+		activeReq = queuedReqs[0]
+		queuedReqs = queuedReqs[1:]
+		if err := c.enc.Encode(activeReq.args); err != nil {
+			activeReq.errCh <- err
+			activeReq = nil
+		}
+	}
+
+	for {
+		select {
+		case req := <-c.reqCh:
+			queuedReqs = append(queuedReqs, &req)
+			processNext()
+		case v := <-ch:
+			if activeReq == nil {
+				continue
+			}
+
+			if err, ok := v.(error); ok {
+				activeReq.errCh <- err
+			} else {
+				activeReq.errCh <- bser.UnmarshalValue(v.(bser.RawMessage), activeReq.dest)
+			}
+
+			activeReq = nil
+			processNext()
+		}
+	}
 }
 
 func initSock(sock string) (net.Conn, error) {
@@ -99,14 +163,9 @@ func (c *Client) Send(dest interface{}, args ...interface{}) error {
 		return err
 	}
 
-	c.encMu.Lock()
-	defer c.encMu.Unlock()
-
-	if err := c.enc.Encode(args); err != nil {
-		return err
-	}
-
-	return c.dec.Decode(dest)
+	r := request{args: args, dest: dest, errCh: make(chan error)}
+	c.reqCh <- r
+	return <-r.errCh
 }
 
 type base struct {
