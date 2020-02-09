@@ -41,6 +41,7 @@ type request struct {
 	dest  interface{}
 	args  []interface{}
 	errCh chan error
+	uniCh chan bser.RawMessage
 }
 
 func (c *Client) init() error {
@@ -93,6 +94,7 @@ func (c *Client) handleReqs(ch chan interface{}) {
 	var (
 		activeReq  *request
 		queuedReqs = []*request{}
+		watches    = []chan bser.RawMessage{}
 	)
 
 	processNext := func() {
@@ -102,6 +104,11 @@ func (c *Client) handleReqs(ch chan interface{}) {
 
 		activeReq = queuedReqs[0]
 		queuedReqs = queuedReqs[1:]
+
+		if activeReq.uniCh != nil {
+			watches = append(watches, activeReq.uniCh)
+		}
+
 		if err := c.enc.Encode(activeReq.args); err != nil {
 			activeReq.errCh <- err
 			activeReq = nil
@@ -115,6 +122,11 @@ func (c *Client) handleReqs(ch chan interface{}) {
 			processNext()
 		case v := <-ch:
 			if activeReq == nil {
+				if msg, ok := v.(bser.RawMessage); ok {
+					for _, w := range watches {
+						w <- msg
+					}
+				}
 				continue
 			}
 
@@ -165,6 +177,18 @@ func (c *Client) Send(dest interface{}, args ...interface{}) error {
 
 	r := request{args: args, dest: dest, errCh: make(chan error)}
 	c.reqCh <- r
+	return <-r.errCh
+}
+
+// SendAndWatch makes a client call and also listens for all unilateral messages
+func (c *Client) SendAndWatch(ch chan bser.RawMessage, dest interface{}, args ...interface{}) error {
+	if err := c.init(); err != nil {
+		return err
+	}
+
+	r := request{args: args, dest: dest, errCh: make(chan error), uniCh: ch}
+	c.reqCh <- r
+
 	return <-r.errCh
 }
 
