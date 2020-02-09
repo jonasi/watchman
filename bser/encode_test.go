@@ -49,7 +49,7 @@ func TestEncode(t *testing.T) {
 func testEncode(t *testing.T, testCase encodeTest) {
 	t.Helper()
 
-	b, err := Marshal(testCase.data)
+	b, err := MarshalPDU(testCase.data)
 	if testCase.expectErr && err != nil {
 		return
 	}
@@ -76,7 +76,7 @@ func BenchmarkEncoder(b *testing.B) {
 		var err error
 		b.Run(fmt.Sprintf("data=%s", benchName), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, err = Marshal(data)
+				_, err = MarshalPDU(data)
 			}
 		})
 		benchEncErr = err

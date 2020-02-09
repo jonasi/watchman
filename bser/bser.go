@@ -2,6 +2,7 @@ package bser
 
 import (
 	"encoding/binary"
+	"errors"
 	"reflect"
 	"strings"
 )
@@ -18,6 +19,8 @@ var (
 	typGenericSlice = reflect.TypeOf([]interface{}{})
 	typGenericMap   = reflect.TypeOf(map[string]interface{}{})
 	typBool         = reflect.TypeOf(true)
+	typMarshaler    = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	typUnmarshaler  = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 )
 
 type structFields map[string]field
@@ -85,4 +88,35 @@ func fields(t reflect.Type) structFields {
 	}
 
 	return fields
+}
+
+// Marshaler allows a type to define a custom marshal mechanism
+type Marshaler interface {
+	MarshalBSER() ([]byte, error)
+}
+
+// Unmarshaler allows a type to define a custom unmarshal mechanism
+type Unmarshaler interface {
+	UnmarshalBSER([]byte) error
+}
+
+// RawMessage is a raw encoded BSER value
+type RawMessage []byte
+
+// MarshalBSER implements Marshaler
+func (r RawMessage) MarshalBSER() ([]byte, error) {
+	if r == nil {
+		return []byte{0x0a}, nil
+	}
+	return r, nil
+}
+
+// UnmarshalBSER implements Unmarshaler
+func (r *RawMessage) UnmarshalBSER(b []byte) error {
+	if r == nil {
+		return errors.New("bser.RawMessage: UnmarshalBSER on nil pointer")
+	}
+
+	*r = append((*r)[0:0], b...)
+	return nil
 }
