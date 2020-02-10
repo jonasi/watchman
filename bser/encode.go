@@ -187,11 +187,11 @@ func isNillable(k reflect.Kind) bool {
 
 func fitInt(v int) interface{} {
 	switch {
-	case v < math.MaxInt8:
+	case v < math.MaxInt8 && v > math.MinInt8:
 		return int8(v)
-	case v < math.MaxInt16:
+	case v < math.MaxInt16 && v > math.MinInt16:
 		return int16(v)
-	case v < math.MaxInt32:
+	case v < math.MaxInt32 && v > math.MinInt32:
 		return int32(v)
 	default:
 		return int64(v)
