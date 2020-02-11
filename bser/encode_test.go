@@ -13,6 +13,10 @@ type person struct {
 	Age  int
 }
 
+type unencodable struct {
+	C chan string
+}
+
 type encodeTest struct {
 	data        interface{}
 	expectedEnc []byte
@@ -121,6 +125,32 @@ var encodeTests = map[string]encodeTest{
 		expectedEnc: []byte(
 			"\x00\x01\x03\x08\x01\x03\x01\x02\x03\x01a\x09",
 		),
+	},
+	"map_str_chan": {
+		data: map[string]chan string{
+			"a": make(chan string),
+			"b": make(chan string),
+		},
+		expectErr: true,
+	},
+	"chan_slice": {
+		data: []chan string{
+			make(chan string),
+			make(chan string),
+		},
+		expectErr: true,
+	},
+	"object_with_chan_field": {
+		data: unencodable{
+			C: make(chan string),
+		},
+		expectErr: true,
+	},
+	"func": {
+		data: func() int {
+			return 0
+		},
+		expectErr: true,
 	},
 }
 
