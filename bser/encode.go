@@ -119,7 +119,7 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			b := make([]byte, 8)
 			order.PutUint64(b, math.Float64bits(r.Float()))
 			return appendItem(buf, 0x07, b), nil
-		case reflect.Slice:
+		case reflect.Slice, reflect.Array:
 			b, err := encode(nil, r.Len())
 			if err != nil {
 				return nil, err

@@ -140,8 +140,8 @@ func decodeArray(r io.Reader, dest reflect.Value, buf *[]byte) error {
 		return err
 	}
 
-	if dest != emptyValue && dest.Kind() != reflect.Slice {
-		return fmt.Errorf("Expected slice, found %s", dest.Kind())
+	if dest != emptyValue && dest.Kind() != reflect.Slice && dest.Kind() != reflect.Array {
+		return fmt.Errorf("Expected slice or array, found %s", dest.Kind())
 	}
 
 	var length int
@@ -149,11 +149,14 @@ func decodeArray(r io.Reader, dest reflect.Value, buf *[]byte) error {
 		return err
 	}
 
-	if dest != emptyValue {
+	if dest != emptyValue && dest.Kind() == reflect.Slice {
 		dest.Set(reflect.MakeSlice(dest.Type(), length, length))
 	}
 
 	for i := 0; i < length; i++ {
+		if i >= dest.Len() {
+			continue
+		}
 		v := emptyValue
 		if dest != emptyValue {
 			v = reflect.New(dest.Type().Elem())
