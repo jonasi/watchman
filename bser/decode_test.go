@@ -169,6 +169,24 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"map_str_bool": {
+		encoded: []byte(
+			"\x00\x01\x05!\x00\x00\x00\x01\x03\x06\x02\x03\x01a\x08\x02\x03\x01b\t\x02\x03\x01c\x08\x02\x03\x01d\t\x02\x03\x01e\x08\x02\x03\x01f\t",
+		),
+		expectedData: map[string]bool{
+			"a": true,
+			"b": false,
+			"c": true,
+			"d": false,
+			"e": true,
+			"f": false,
+		},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[string]bool{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 }
 
 func TestDecode(t *testing.T) {
@@ -274,6 +292,16 @@ var decodeBenches = map[string]decodeBench{
 		),
 		doDecode: func(decoder *Decoder) (interface{}, error) {
 			dst := []float64{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"map_str_bool": {
+		encoded: []byte(
+			"\x00\x01\x05!\x00\x00\x00\x01\x03\x06\x02\x03\x01a\x08\x02\x03\x01b\t\x02\x03\x01c\x08\x02\x03\x01d\t\x02\x03\x01e\x08\x02\x03\x01f\t",
+		),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[string]bool{}
 			err := decoder.Decode(&dst)
 			return dst, err
 		},
