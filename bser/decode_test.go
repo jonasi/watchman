@@ -26,6 +26,39 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"pos_int8_array": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectedData: [6]int8{1, 2, 3, 4, 5, 6},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst [6]int8
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_array_insufficient_size": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectedData: [3]int8{1, 2, 3},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst [3]int8
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_array_greater_size": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectedData: [8]int8{1, 2, 3, 4, 5, 6, 0, 0},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst [8]int8
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 	"string_slice": {
 		encoded: []byte(
 			"\x00\x01\x03\x1b\x00\x03\x06\x02\x03\x01a\x02\x03\x01b\x02\x03\x01c\x02\x03\x01d\x02\x03\x01e\x02\x03\x01f",

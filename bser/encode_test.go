@@ -38,6 +38,12 @@ var encodeTests = map[string]encodeTest{
 			"\x00\x01\x03\x19\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
 		),
 	},
+	"pos_int8_array": {
+		data: [6]int{1, 2, 3, 4, 5, 6},
+		expectedEnc: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+	},
 	"string_slice": {
 		data: []string{"a", "b", "c", "d", "e", "f"},
 		expectedEnc: []byte(
