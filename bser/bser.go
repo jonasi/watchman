@@ -11,10 +11,12 @@ var (
 	protocolPrefix  = []byte{0, 1}
 	order           = binary.LittleEndian
 	typString       = reflect.TypeOf("")
+	typInt          = reflect.TypeOf(int(0))
 	typInt8         = reflect.TypeOf(int8(0))
 	typInt16        = reflect.TypeOf(int16(0))
 	typInt32        = reflect.TypeOf(int32(0))
 	typInt64        = reflect.TypeOf(int64(0))
+	typFloat32      = reflect.TypeOf(float32(0))
 	typFloat64      = reflect.TypeOf(float64(0))
 	typGenericSlice = reflect.TypeOf([]interface{}{})
 	typGenericMap   = reflect.TypeOf(map[string]interface{}{})

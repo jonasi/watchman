@@ -265,6 +265,9 @@ func decodeString(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetString(dest) {
+			return fmt.Errorf("can't decode string to %s", dest.Kind())
+		}
 		dest.SetString(string(b))
 	}
 	if buf != nil {
@@ -285,6 +288,9 @@ func decodeInt8(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetInt(dest) {
+			return fmt.Errorf("can't decode int8 to %s", dest.Kind())
+		}
 		dest.SetInt(int64(b[0]))
 	}
 	if buf != nil {
@@ -305,6 +311,9 @@ func decodeInt16(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetInt(dest) {
+			return fmt.Errorf("can't decode int16 to %s", dest.Kind())
+		}
 		v := order.Uint16(b)
 		dest.SetInt(int64(v))
 	}
@@ -326,6 +335,9 @@ func decodeInt32(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetInt(dest) {
+			return fmt.Errorf("can't decode int32 to %s", dest.Kind())
+		}
 		v := order.Uint32(b)
 		dest.SetInt(int64(v))
 	}
@@ -347,6 +359,9 @@ func decodeInt64(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetInt(dest) {
+			return fmt.Errorf("can't decode int64 to %s", dest.Kind())
+		}
 		v := order.Uint64(b)
 		dest.SetInt(int64(v))
 	}
@@ -368,6 +383,9 @@ func decodeReal(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	if dest != emptyValue {
+		if !canSetFloat(dest) {
+			return fmt.Errorf("can't decode real to %s", dest.Kind())
+		}
 		v := order.Uint64(b)
 		dest.SetFloat(math.Float64frombits(v))
 	}
@@ -384,6 +402,9 @@ func decodeBool(v bool, dest reflect.Value) error {
 		return err
 	}
 
+	if !canSetBool(dest) {
+		return fmt.Errorf("can't decode bool to %s", dest.Kind())
+	}
 	dest.SetBool(v)
 	return nil
 }
@@ -482,4 +503,26 @@ func prep(v reflect.Value, typ reflect.Type) (reflect.Value, error) {
 	}
 
 	return reflect.Value{}, fmt.Errorf("Interface found, but expected %s", typ)
+}
+
+// canSetString checks if we can call SetString() on v - https://golang.org/pkg/reflect/#Value.SetString
+func canSetString(v reflect.Value) bool {
+	return v.CanSet() && v.Type() == typString
+}
+
+// canSetInt checks if we can call SetInt() on v - https://golang.org/pkg/reflect/#Value.SetInt
+func canSetInt(v reflect.Value) bool {
+	validType := v.Type() == typInt || v.Type() == typInt8 || v.Type() == typInt16 || v.Type() == typInt32 || v.Type() == typInt64
+	return v.CanSet() && validType
+}
+
+// canSetFloat checks if we can call SetFloat() on v - https://golang.org/pkg/reflect/#Value.SetFloat
+func canSetFloat(v reflect.Value) bool {
+	validType := v.Type() == typFloat32 || v.Type() == typFloat64
+	return v.CanSet() && validType
+}
+
+// canSetBool checks if we can call SetBool() on v - https://golang.org/pkg/reflect/#Value.SetBool
+func canSetBool(v reflect.Value) bool {
+	return v.CanSet() && v.Type() == typBool
 }
