@@ -187,6 +187,94 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"invalid_size_type_identifier": {
+		encoded: []byte(
+			"\x00\x01\xff\x02\x03\x10", // encoded 16 with int8 type in header replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int8
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"invalid_type_identifier": {
+		encoded: []byte(
+			"\x00\x01\x03\x02\xff\x10", // encoded 16 with int8 type replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int8
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"slice_of_invalid_type": {
+		encoded: []byte(
+			"\x00\x01\x03\x07\x00\x03\x02\xff\x01\xff\x02", // encoded [1, 2] with int8 type replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst = []int8{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"slice_with_invalid_length_type": {
+		encoded: []byte(
+			"\x00\x01\x03\x07\x00\xff\x02\x03\x01\x03\x02", // encoded [1, 2] with int8 length type replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst = []int8{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"object_with_invalid_key_type": {
+		encoded: []byte(
+			"\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\xff\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := person{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"object_with_invalid_value_type": {
+		encoded: []byte(
+			"\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\xff\x14",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := person{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"map_with_invalid_key_type": {
+		encoded: []byte(
+			"\x00\x01\x03\x08\x01\x03\x01\xff\x03\x01a\x03\x01", // encoded {"a": 1} with string type replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[string]int{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"map_with_invalid_value_type": {
+		encoded: []byte(
+			"\x00\x01\x03\x08\x01\x03\x01\x02\x03\x01a\xff\x01", // encoded {"a": 1} with int8 type replaced with 0xff
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[string]int{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 }
 
 func TestDecode(t *testing.T) {
