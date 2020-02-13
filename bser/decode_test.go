@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+type nonDecodable interface {
+	valid() bool
+}
+
 type decodeTest struct {
 	encoded      []byte
 	expectedData interface{}
@@ -271,6 +275,229 @@ var decodeTests = map[string]decodeTest{
 		expectErr: true,
 		doDecode: func(decoder *Decoder) (interface{}, error) {
 			dst := map[string]int{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"non_pointer_dst": {
+		encoded: []byte(
+			"\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := person{}
+			err := decoder.Decode(dst)
+			return dst, err
+		},
+	},
+	"int8_array_to_object": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := person{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_array_to_string_arr": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []string{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_array_to_interface": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_array_to_interface_arr": {
+		encoded: []byte(
+			"\x00\x01\x03\x0f\x00\x03\x06\x03\x01\x03\x02\x03\x03\x03\x04\x03\x05\x03\x06",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst []nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int16_arr_to_string_arr": {
+		encoded: []byte(
+			"\x00\x01\x03\x15\x00\x03\x06\x04\xe9\x03\x04\xea\x03\x04\xeb\x03\x04\xec\x03\x04\xed\x03\x04\xee\x03",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []string{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int16_arr_to_interface_arr": {
+		encoded: []byte(
+			"\x00\x01\x03\x15\x00\x03\x06\x04\xe9\x03\x04\xea\x03\x04\xeb\x03\x04\xec\x03\x04\xed\x03\x04\xee\x03",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst []nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int32_arr_to_string_arr": {
+		encoded: []byte(
+			"\x00\x01\x03!\x00\x03\x06\x05\xa1\x86\x01\x00\x05\xa2\x86\x01\x00\x05\xa3\x86\x01\x00\x05\xa4\x86\x01\x00\x05\xa5\x86\x01\x00\x05\xa6\x86\x01\x00",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []string{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int32_arr_to_interface_arr": {
+		encoded: []byte(
+			"\x00\x01\x03!\x00\x03\x06\x05\xa1\x86\x01\x00\x05\xa2\x86\x01\x00\x05\xa3\x86\x01\x00\x05\xa4\x86\x01\x00\x05\xa5\x86\x01\x00\x05\xa6\x86\x01\x00",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst []nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int64_arr_to_string_arr": {
+		encoded: []byte(
+			"\x00\x01\x039\x00\x03\x06\x06\x00^\xd0\xb2\x00\x00\x00\x00\x06\x01^\xd0\xb2\x00\x00\x00\x00\x06\x02^\xd0\xb2\x00\x00\x00\x00\x06\x03^\xd0\xb2\x00\x00\x00\x00\x06\x04^\xd0\xb2\x00\x00\x00\x00\x06\x05^\xd0\xb2\x00\x00\x00\x00",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []string{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int64_arr_to_interface_arr": {
+		encoded: []byte(
+			"\x00\x01\x039\x00\x03\x06\x06\x00^\xd0\xb2\x00\x00\x00\x00\x06\x01^\xd0\xb2\x00\x00\x00\x00\x06\x02^\xd0\xb2\x00\x00\x00\x00\x06\x03^\xd0\xb2\x00\x00\x00\x00\x06\x04^\xd0\xb2\x00\x00\x00\x00\x06\x05^\xd0\xb2\x00\x00\x00\x00",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst []nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"object_to_int_slice": {
+		encoded: []byte(
+			"\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []int{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"string_slice_to_int_array": {
+		encoded: []byte(
+			"\x00\x01\x03\x1b\x00\x03\x06\x02\x03\x01a\x02\x03\x01b\x02\x03\x01c\x02\x03\x01d\x02\x03\x01e\x02\x03\x01f",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []int{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"dst_map_has_int_keys": {
+		encoded: []byte(
+			"\x00\x01\x05\x0b\x00\x00\x00\x01\x03\x01\x02\x03\x011\x02\x03\x01a",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[int]string{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"map_to_interface": {
+		encoded: []byte(
+			"\x00\x01\x05\x0b\x00\x00\x00\x01\x03\x01\x02\x03\x011\x02\x03\x01a",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"bool_to_interface": {
+		encoded: []byte(
+			"\x00\x01\x05\x01\x00\x00\x00\x08",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst nonDecodable
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"bool_to_int": {
+		encoded: []byte(
+			"\x00\x01\x05\x01\x00\x00\x00\x08",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"float_to_string": {
+		encoded: []byte(
+			"\x00\x01\x05\t\x00\x00\x00\x07\xaeG\xe1z\x14\xae\xf3?",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst string
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"dst_map_has_incorrect_field_type": {
+		encoded: []byte(
+			"\x00\x01\x05\x0b\x00\x00\x00\x01\x03\x01\x02\x03\x011\x02\x03\x01a",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := map[string]int{} // encoded data was of type map[string]string
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"dst_object_has_incorrect_field_type": {
+		encoded: []byte(
+			"\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
+		),
+		expectErr: true,
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := struct {
+				Name int // encoded object specifies this field should have string value
+				Age  int
+			}{}
 			err := decoder.Decode(&dst)
 			return dst, err
 		},
