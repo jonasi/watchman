@@ -104,6 +104,24 @@ var encodeTests = map[string]encodeTest{
 			"\x00\x01\x039\x00\x03\x06\x07{\x14\xaeG\xe1z\x84?\x07{\x14\xaeG\xe1z\x94?\x07\xb8\x1e\x85\xebQ\xb8\x9e?\x07{\x14\xaeG\xe1z\xa4?\x07\x9a\x99\x99\x99\x99\x99\xa9?\x07\xb8\x1e\x85\xebQ\xb8\xae?",
 		),
 	},
+	"map_str_bool_true_only": {
+		// only using one entry since map iteration order is not guaranteed
+		data: map[string]bool{
+			"a": true,
+		},
+		expectedEnc: []byte(
+			"\x00\x01\x03\x08\x01\x03\x01\x02\x03\x01a\x08",
+		),
+	},
+	"map_str_bool_false_only": {
+		// only using one entry since map iteration order is not guaranteed
+		data: map[string]bool{
+			"a": false,
+		},
+		expectedEnc: []byte(
+			"\x00\x01\x03\x08\x01\x03\x01\x02\x03\x01a\x09",
+		),
+	},
 }
 
 func TestEncode(t *testing.T) {
@@ -213,6 +231,73 @@ func BenchmarkEncodeSlice(b *testing.B) {
 					}
 				})
 				benchEncSliceErr = err
+			}
+		})
+	}
+}
+
+var encodeMapBenches = map[string]func(numElems int) interface{}{
+	"string": func(numElems int) interface{} {
+		data := map[string]string{}
+		for i := 0; i < numElems; i++ {
+			data[strconv.Itoa(i)] = strconv.Itoa(i)
+		}
+		return data
+	},
+	"int8": func(numElems int) interface{} {
+		data := map[int8]int8{}
+		for i := 0; i < numElems; i++ {
+			data[int8(i)] = int8(i)
+		}
+		return data
+	},
+	"int16": func(numElems int) interface{} {
+		data := map[int16]int16{}
+		for i := 0; i < numElems; i++ {
+			data[int16(i)] = int16(math.MaxInt8 + i)
+		}
+		return data
+	},
+	"int32": func(numElems int) interface{} {
+		data := map[int32]int32{}
+		for i := 0; i < numElems; i++ {
+			data[int32(i)] = int32(math.MaxInt16 + i)
+		}
+		return data
+	},
+	"int64": func(numElems int) interface{} {
+		data := map[int64]int64{}
+		for i := 0; i < numElems; i++ {
+			data[int64(i)] = int64(math.MaxInt32 + i)
+		}
+		return data
+	},
+	"float64": func(numElems int) interface{} {
+		data := map[float64]float64{}
+		for i := 0; i < numElems; i++ {
+			data[float64(i)] = float64(i)
+		}
+		return data
+	},
+}
+
+var benchEncMapErr error
+
+func BenchmarkEncodeMap(b *testing.B) {
+	allNumElems := []int{1, 3, 5, 10, 20, 50, 100}
+	for dtype, dataFn := range encodeMapBenches {
+		b.Run(fmt.Sprintf("dtype=%s", dtype), func(b *testing.B) {
+			for _, numElems := range allNumElems {
+				var err error
+				b.Run(fmt.Sprintf("num_elems=%d", numElems), func(b *testing.B) {
+					b.StopTimer()
+					data := dataFn(numElems)
+					b.StartTimer()
+					for i := 0; i < b.N; i++ {
+						_, err = MarshalPDU(data)
+					}
+				})
+				benchEncMapErr = err
 			}
 		})
 	}
