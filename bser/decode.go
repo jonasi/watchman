@@ -123,6 +123,9 @@ func decodeValue(r io.Reader, dest reflect.Value, buf *[]byte) error {
 		}
 	case 0x0b:
 		err = decodeTemplate(r, dest, buf)
+	case 0x0c:
+		// 0x0c is used to represent missing value in templated array - skipping to use default value
+		return nil
 	default:
 		err = fmt.Errorf("Invalid type marker found: %x", l[0])
 	}

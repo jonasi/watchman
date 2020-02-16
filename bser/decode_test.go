@@ -191,6 +191,42 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"template_arr": {
+		// copied from https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
+		encoded: []byte{
+			0x00, 0x01, 0x03, 0x28,
+			0x0b,
+			0x00,
+			0x03, 0x02,
+			0x02,
+			0x03, 0x04,
+			0x6e, 0x61, 0x6d, 0x65,
+			0x02,
+			0x03, 0x03,
+			0x61, 0x67, 0x65,
+			0x03, 0x03,
+			0x02,
+			0x03, 0x04,
+			0x66, 0x72, 0x65, 0x64,
+			0x03, 0x14,
+			0x02,
+			0x03, 0x04,
+			0x70, 0x65, 0x74, 0x65,
+			0x03, 0x1e,
+			0x0c,
+			0x03, 0x19,
+		},
+		expectedData: []person{
+			{Name: "fred", Age: 20},
+			{Name: "pete", Age: 30},
+			{Age: 25},
+		},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			dst := []person{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 	"invalid_size_type_identifier": {
 		encoded: []byte(
 			"\x00\x01\xff\x02\x03\x10", // encoded 16 with int8 type in header replaced with 0xff
