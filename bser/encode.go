@@ -111,6 +111,20 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 		}
 
 		switch r.Kind() {
+		case reflect.String:
+			return encode(buf, r.String())
+		case reflect.Int8:
+			return encode(buf, int8(r.Int()))
+		case reflect.Int16:
+			return encode(buf, int16(r.Int()))
+		case reflect.Int32:
+			return encode(buf, int32(r.Int()))
+		case reflect.Int64:
+			return encode(buf, r.Int())
+		case reflect.Int:
+			return encode(buf, int(r.Int()))
+		case reflect.Bool:
+			return encode(buf, r.Bool())
 		case reflect.Float32:
 			b := make([]byte, 8)
 			order.PutUint64(b, math.Float64bits(r.Float()))
