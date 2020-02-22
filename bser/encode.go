@@ -134,10 +134,10 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			order.PutUint64(b, math.Float64bits(r.Float()))
 			return appendItem(buf, 0x07, b), nil
 		case reflect.Slice, reflect.Array:
-			// TODO: handle pointers to structs
-			if r.Type().Elem().Kind() == reflect.Struct {
+			if canTemplateEncode(r) {
 				return encodeTemplate(buf, r)
 			}
+
 			b, err := encode(nil, r.Len())
 			if err != nil {
 				return nil, err
@@ -196,8 +196,40 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 	}
 }
 
-func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
+func canTemplateEncode(r reflect.Value) bool {
+	if r.Kind() != reflect.Slice && r.Kind() != reflect.Array {
+		return false
+	}
 	elem := r.Type().Elem()
+	if elem.Kind() == reflect.Struct {
+		// slice/array of structs
+		return true
+	}
+
+	if elem.Kind() == reflect.Ptr && elem.Elem().Kind() == reflect.Struct {
+		// slice/array of pointers to structs
+		for i := 0; i < r.Len(); i++ {
+			if r.Index(i).IsNil() {
+				// can't use template encoding if any values nil
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
+	var (
+		elem  = r.Type().Elem()
+		isPtr = false
+	)
+
+	if elem.Kind() == reflect.Ptr {
+		elem = elem.Elem()
+		isPtr = true
+	}
+
 	exportedStructFields, err := exportedStructFields(elem)
 	if err != nil {
 		return nil, err
@@ -210,6 +242,9 @@ func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
 	}
 	for i := 0; i < r.Len(); i++ {
 		s := r.Index(i)
+		if isPtr {
+			s = s.Elem()
+		}
 		for j, field := range exportedStructFields {
 			if i == 0 {
 				fieldNames[j] = field.Name
