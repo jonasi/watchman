@@ -17,6 +17,14 @@ type unencodable struct {
 	C chan string
 }
 
+type stringAlias string
+type int8Alias int8
+type int16Alias int16
+type int32Alias int32
+type int64Alias int64
+type intAlias int
+type boolAlias bool
+
 type encodeTest struct {
 	data        interface{}
 	expectedEnc []byte
@@ -124,6 +132,48 @@ var encodeTests = map[string]encodeTest{
 		},
 		expectedEnc: []byte(
 			"\x00\x01\x03\x08\x01\x03\x01\x02\x03\x01a\x09",
+		),
+	},
+	"string_alias": {
+		data: stringAlias("hello"),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x08\x02\x03\x05hello",
+		),
+	},
+	"int8_alias": {
+		data: int8Alias(2),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x02\x03\x02",
+		),
+	},
+	"int16_alias": {
+		data: int16Alias(1001),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x03\x04\xe9\x03",
+		),
+	},
+	"int32_alias": {
+		data: int32Alias(100001),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x05\x05\xa1\x86\x01\x00",
+		),
+	},
+	"int64_alias": {
+		data: int64Alias(3_000_000_001),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x09\x06\x01^\xd0\xb2\x00\x00\x00\x00",
+		),
+	},
+	"int_alias_int32_value": {
+		data: intAlias(100001),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x05\x05\xa1\x86\x01\x00",
+		),
+	},
+	"bool_alias": {
+		data: boolAlias(false),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x01\x09",
 		),
 	},
 	"map_str_chan": {

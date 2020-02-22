@@ -510,22 +510,22 @@ func prep(v reflect.Value, typ reflect.Type) (reflect.Value, error) {
 
 // canSetString checks if we can call SetString() on v - https://golang.org/pkg/reflect/#Value.SetString
 func canSetString(v reflect.Value) bool {
-	return v.CanSet() && v.Type() == typString
+	return v.CanSet() && v.Kind() == reflect.String
 }
 
 // canSetInt checks if we can call SetInt() on v - https://golang.org/pkg/reflect/#Value.SetInt
 func canSetInt(v reflect.Value) bool {
-	validType := v.Type() == typInt || v.Type() == typInt8 || v.Type() == typInt16 || v.Type() == typInt32 || v.Type() == typInt64
+	validType := v.Kind() == reflect.Int || v.Kind() == reflect.Int8 || v.Kind() == reflect.Int16 || v.Kind() == reflect.Int32 || v.Kind() == reflect.Int64
 	return v.CanSet() && validType
 }
 
 // canSetFloat checks if we can call SetFloat() on v - https://golang.org/pkg/reflect/#Value.SetFloat
 func canSetFloat(v reflect.Value) bool {
-	validType := v.Type() == typFloat32 || v.Type() == typFloat64
+	validType := v.Kind() == reflect.Float32 || v.Kind() == reflect.Float64
 	return v.CanSet() && validType
 }
 
 // canSetBool checks if we can call SetBool() on v - https://golang.org/pkg/reflect/#Value.SetBool
 func canSetBool(v reflect.Value) bool {
-	return v.CanSet() && v.Type() == typBool
+	return v.CanSet() && v.Kind() == reflect.Bool
 }

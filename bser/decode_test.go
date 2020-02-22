@@ -227,6 +227,83 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"string_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x08\x02\x03\x05hello",
+		),
+		expectedData: stringAlias("hello"),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst stringAlias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int8_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x02\x03\x02",
+		),
+		expectedData: int8Alias(2),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int8Alias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int16_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x03\x04\xe9\x03",
+		),
+		expectedData: int16Alias(1001),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int16Alias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int32_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x05\x05\xa1\x86\x01\x00",
+		),
+		expectedData: int32Alias(100001),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int32Alias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int64_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x09\x06\x01^\xd0\xb2\x00\x00\x00\x00",
+		),
+		expectedData: int64Alias(3_000_000_001),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int64Alias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"int_alias_int32_value": {
+		encoded: []byte(
+			"\x00\x01\x03\x05\x05\xa1\x86\x01\x00",
+		),
+		expectedData: int64Alias(100001),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst int64Alias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"bool_alias": {
+		encoded: []byte(
+			"\x00\x01\x03\x01\x09",
+		),
+		expectedData: boolAlias(false),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst boolAlias
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 	"invalid_size_type_identifier": {
 		encoded: []byte(
 			"\x00\x01\xff\x02\x03\x10", // encoded 16 with int8 type in header replaced with 0xff
