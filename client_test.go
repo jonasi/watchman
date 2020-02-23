@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -57,4 +58,26 @@ func testMain(m *testing.M) int {
 	}()
 
 	return m.Run()
+}
+
+func expectErrEqual(t *testing.T, err error, msg string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Expected error")
+	}
+
+	if err.Error() != msg {
+		t.Fatalf("Expected error message to be \"%s\" but found \"%s\"", msg, err.Error())
+	}
+}
+
+func expectErrRegex(t *testing.T, err error, pattern string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("Expected error")
+	}
+
+	if !regexp.MustCompile(pattern).MatchString(err.Error()) {
+		t.Fatalf("Expected error to match \"%s\" but found \"%s\"", pattern, err.Error())
+	}
 }

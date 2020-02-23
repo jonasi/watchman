@@ -10,18 +10,12 @@ func TestFind(t *testing.T) {
 
 	t.Run("empty path", func(t *testing.T) {
 		_, err := cl.Find("")
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error")
-		}
+		expectErrEqual(t, err, "invalid argument")
 	})
 
 	t.Run("invalid path", func(t *testing.T) {
 		_, err := cl.Find("/stupid dumb i guess this could exist")
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error")
-		}
+		expectErrRegex(t, err, "^lstat .*: no such file or directory$")
 	})
 
 	t.Run("not watched", func(t *testing.T) {
@@ -31,10 +25,7 @@ func TestFind(t *testing.T) {
 		}
 
 		_, err = cl.Find(path)
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error calling find")
-		}
+		expectErrRegex(t, err, "^unable to resolve root .*: directory .* is not watched$")
 	})
 
 	t.Run("success - no patterns", func(t *testing.T) {

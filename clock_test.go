@@ -10,18 +10,12 @@ func TestClock(t *testing.T) {
 
 	t.Run("empty path", func(t *testing.T) {
 		_, err := cl.Clock("")
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error")
-		}
+		expectErrEqual(t, err, "invalid argument")
 	})
 
 	t.Run("invalid path", func(t *testing.T) {
 		_, err := cl.Clock("/stupid dumb i guess this could exist")
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error")
-		}
+		expectErrRegex(t, err, "^lstat .*: no such file or directory$")
 	})
 
 	t.Run("no watch", func(t *testing.T) {
@@ -31,10 +25,7 @@ func TestClock(t *testing.T) {
 		}
 
 		_, err = cl.Clock(path)
-		if err == nil {
-			// todo(isao) - specific error
-			t.Errorf("Expected error")
-		}
+		expectErrRegex(t, err, "^unable to resolve root .*: directory .* is not watched$")
 	})
 
 	t.Run("success", func(t *testing.T) {
