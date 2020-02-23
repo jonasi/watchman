@@ -28,7 +28,6 @@ func (e Error) Error() string {
 // Client is a watchman client
 type Client struct {
 	Sockname string
-	JSON     bool
 	conn     net.Conn
 	enc      enc
 	dec      dec
@@ -61,13 +60,8 @@ func (c *Client) init() error {
 			return
 		}
 
-		if c.JSON {
-			c.enc = json.NewEncoder(c.conn)
-			c.dec = json.NewDecoder(c.conn)
-		} else {
-			c.enc = bser.NewEncoder(c.conn)
-			c.dec = bser.NewDecoder(c.conn)
-		}
+		c.enc = bser.NewEncoder(c.conn)
+		c.dec = bser.NewDecoder(c.conn)
 
 		c.reqCh = make(chan request)
 		decCh := make(chan interface{})
