@@ -6,6 +6,7 @@ type Version struct {
 }
 
 // Version will tell you the version and build information for the currently running watchman service
+// https://facebook.github.io/watchman/docs/cmd/version.html
 func (c *Client) Version() (*Version, error) {
 	var data base
 

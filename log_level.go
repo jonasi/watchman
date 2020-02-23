@@ -7,16 +7,17 @@ const (
 	LogLevelOff   = "off"
 )
 
-// Level is the return object of SetLogLevel
-type Level struct {
+// LogLevel is the return object of SetLogLevel
+type LogLevel struct {
 	LogLevel string `bser:"log_level"`
 }
 
-// SetLogLevel changes the log level of the connection
-func (c *Client) SetLogLevel(level string) (*Level, error) {
+// LogLevel changes the log level of the connection
+// https://facebook.github.io/watchman/docs/cmd/log-level.html
+func (c *Client) LogLevel(level string) (*LogLevel, error) {
 	var data struct {
 		base
-		Level
+		LogLevel
 	}
 
 	if err := c.Send(&data, "log-level", level); err != nil {
@@ -27,5 +28,5 @@ func (c *Client) SetLogLevel(level string) (*Level, error) {
 		return nil, data.Error
 	}
 
-	return &data.Level, nil
+	return &data.LogLevel, nil
 }

@@ -27,7 +27,7 @@ func TestSetLogLevel(t *testing.T) {
 	for logLevel, testCase := range setLogLevelTests {
 		t.Run(logLevel, func(t *testing.T) {
 			cl := &Client{Sockname: sock}
-			l, err := cl.SetLogLevel(logLevel)
+			l, err := cl.LogLevel(logLevel)
 			if err != nil {
 				if !testCase.expectErr {
 					t.Fatalf("unexpected error setting log level: %s", err)
