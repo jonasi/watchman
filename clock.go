@@ -10,6 +10,7 @@ type Clock struct {
 }
 
 // Clock returns the current clock value for a watched root.
+// https://facebook.github.io/watchman/docs/cmd/clock.html
 func (c *Client) Clock(path string) (*Clock, error) {
 	path, err := realpath.Realpath(path)
 	if err != nil {

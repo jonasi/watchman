@@ -29,6 +29,7 @@ type File struct {
 }
 
 // Find finds all files that match the optional list of patterns under the specified dir. If no patterns were specified, all files are returned.
+// https://facebook.github.io/watchman/docs/cmd/find.html
 func (c *Client) Find(path string, patterns ...string) (*Find, error) {
 	path, err := realpath.Realpath(path)
 	if err != nil {

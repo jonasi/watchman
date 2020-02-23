@@ -10,6 +10,7 @@ type WatchDelAll struct {
 }
 
 // WatchDelAll removes all watches and associated triggers
+// https://facebook.github.io/watchman/docs/cmd/watch-del-all.html
 func (c *Client) WatchDelAll(path string) (*WatchDelAll, error) {
 	path, err := realpath.Realpath(path)
 	if err != nil {

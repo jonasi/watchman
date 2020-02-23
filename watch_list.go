@@ -6,6 +6,7 @@ type WatchList struct {
 }
 
 // WatchList returns a list of watched dirs
+// https://facebook.github.io/watchman/docs/cmd/watch-list.html
 func (c *Client) WatchList() (*WatchList, error) {
 	var data struct {
 		WatchList

@@ -11,6 +11,7 @@ type Watch struct {
 }
 
 // Watch requests that the specified dir is watched for changes
+// https://facebook.github.io/watchman/docs/cmd/watch.html
 func (c *Client) Watch(path string) (*Watch, error) {
 	path, err := realpath.Realpath(path)
 	if err != nil {
