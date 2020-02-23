@@ -134,6 +134,10 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			order.PutUint64(b, math.Float64bits(r.Float()))
 			return appendItem(buf, 0x07, b), nil
 		case reflect.Slice, reflect.Array:
+			// TODO: handle pointers to structs
+			if r.Type().Elem().Kind() == reflect.Struct {
+				return encodeTemplate(buf, r)
+			}
 			b, err := encode(nil, r.Len())
 			if err != nil {
 				return nil, err
@@ -188,6 +192,36 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			return nil, fmt.Errorf("Unsupported type: %s", r.Type().Kind())
 		}
 	}
+}
+
+func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
+	elem := r.Type().Elem()
+	fieldNames := make([]string, elem.NumField())
+	b, err := encode(nil, r.Len())
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < r.Len(); i++ {
+		s := r.Index(i)
+		for j := 0; j < s.NumField(); j++ {
+			if i == 0 {
+				fieldNames[j] = s.Type().Field(j).Name
+			}
+			fv := s.Field(j)
+			b, err = encode(b, fv.Interface())
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	b2, err := encode(buf, fieldNames)
+	if err != nil {
+		return nil, err
+	}
+
+	b = append(b2, b...)
+
+	return appendItem(buf, 0x0b, b), nil
 }
 
 func isNillable(k reflect.Kind) bool {
