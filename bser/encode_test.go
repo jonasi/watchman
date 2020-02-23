@@ -13,6 +13,12 @@ type person struct {
 	Age  int
 }
 
+type student struct {
+	Name  string
+	Age   int
+	grade int
+}
+
 type unencodable struct {
 	C chan string
 }
@@ -46,6 +52,13 @@ b'\x00\x01\x05\x19\x00\x00\x00\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x
 var encodeTests = map[string]encodeTest{
 	"single_object": {
 		data: person{Name: "fred", Age: 20},
+		expectedEnc: []byte(
+			"\x00\x01\x03\x19\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
+		),
+	},
+	"single_object_unexported_field": {
+		data: student{Name: "fred", Age: 20, grade: 13},
+		// same as previous case since "grade" field will not be encoded
 		expectedEnc: []byte(
 			"\x00\x01\x03\x19\x01\x03\x02\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x14",
 		),
@@ -183,6 +196,38 @@ var encodeTests = map[string]encodeTest{
 			{Age: 25},
 		},
 		// copied from https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
+		expectedEnc: []byte{
+			0x00, 0x01, 0x03, 0x2a,
+			0x0b,
+			0x00,
+			0x03, 0x02,
+			0x02,
+			0x03, 0x04,
+			0x4e, 0x61, 0x6d, 0x65, // "Name" instead of "name"
+			0x02,
+			0x03, 0x03,
+			0x41, 0x67, 0x65, // "Age" instead of "age"
+			0x03, 0x03,
+			0x02,
+			0x03, 0x04,
+			0x66, 0x72, 0x65, 0x64,
+			0x03, 0x14,
+			0x02,
+			0x03, 0x04,
+			0x70, 0x65, 0x74, 0x65,
+			0x03, 0x1e,
+			0x02, 0x03, 0x00, // empty string instead of 0x0c
+			0x03, 0x19,
+		},
+	},
+	"template_slice_with_unexported_field": {
+		data: []student{
+			{Name: "fred", Age: 20, grade: 10},
+			{Name: "pete", Age: 30, grade: 11},
+			{Age: 25, grade: 12},
+		},
+		// copied from https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
+		// same as previous case since "grade" field will not be encoded
 		expectedEnc: []byte{
 			0x00, 0x01, 0x03, 0x2a,
 			0x0b,
