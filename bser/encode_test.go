@@ -176,6 +176,68 @@ var encodeTests = map[string]encodeTest{
 			"\x00\x01\x03\x01\x09",
 		),
 	},
+	"template_slice": {
+		data: []person{
+			{Name: "fred", Age: 20},
+			{Name: "pete", Age: 30},
+			{Age: 25},
+		},
+		// copied from https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
+		expectedEnc: []byte{
+			0x00, 0x01, 0x03, 0x2a,
+			0x0b,
+			0x00,
+			0x03, 0x02,
+			0x02,
+			0x03, 0x04,
+			0x4e, 0x61, 0x6d, 0x65, // "Name" instead of "name"
+			0x02,
+			0x03, 0x03,
+			0x41, 0x67, 0x65, // "Age" instead of "age"
+			0x03, 0x03,
+			0x02,
+			0x03, 0x04,
+			0x66, 0x72, 0x65, 0x64,
+			0x03, 0x14,
+			0x02,
+			0x03, 0x04,
+			0x70, 0x65, 0x74, 0x65,
+			0x03, 0x1e,
+			0x02, 0x03, 0x00, // empty string instead of 0x0c
+			0x03, 0x19,
+		},
+	},
+	"template_arr": {
+		data: [3]person{
+			{Name: "fred", Age: 20},
+			{Name: "pete", Age: 30},
+			{Age: 25},
+		},
+		// copied from https://facebook.github.io/watchman/docs/bser.html#array-of-templated-objects
+		expectedEnc: []byte{
+			0x00, 0x01, 0x03, 0x2a,
+			0x0b,
+			0x00,
+			0x03, 0x02,
+			0x02,
+			0x03, 0x04,
+			0x4e, 0x61, 0x6d, 0x65, // "Name" instead of "name"
+			0x02,
+			0x03, 0x03,
+			0x41, 0x67, 0x65, // "Age" instead of "age"
+			0x03, 0x03,
+			0x02,
+			0x03, 0x04,
+			0x66, 0x72, 0x65, 0x64,
+			0x03, 0x14,
+			0x02,
+			0x03, 0x04,
+			0x70, 0x65, 0x74, 0x65,
+			0x03, 0x1e,
+			0x02, 0x03, 0x00, // empty string instead of 0x0c
+			0x03, 0x19,
+		},
+	},
 	"map_str_chan": {
 		data: map[string]chan string{
 			"a": make(chan string),
@@ -378,6 +440,89 @@ func BenchmarkEncodeMap(b *testing.B) {
 					}
 				})
 				benchEncMapErr = err
+			}
+		})
+	}
+}
+
+var encodeStructArrBenches = map[string]func(numElems int) interface{}{
+	"num_fields=1": func(numElems int) interface{} {
+		type tmp struct {
+			A int
+		}
+		s := make([]tmp, numElems)
+		for i := 0; i < numElems; i++ {
+			s[i] = tmp{i}
+		}
+		return s
+	},
+	"num_fields=3": func(numElems int) interface{} {
+		type tmp struct {
+			A int
+			B int
+			C int
+		}
+		s := make([]tmp, numElems)
+		for i := 0; i < numElems; i++ {
+			s[i] = tmp{A: i, B: i, C: i}
+		}
+		return s
+	},
+	"num_fields=5": func(numElems int) interface{} {
+		type tmp struct {
+			A int
+			B int
+			C int
+			D int
+			E int
+		}
+		s := make([]tmp, numElems)
+		for i := 0; i < numElems; i++ {
+			s[i] = tmp{A: i, B: i, C: i, D: i, E: i}
+		}
+		return s
+	},
+	"num_fields=10": func(numElems int) interface{} {
+		type tmp struct {
+			A int
+			B int
+			C int
+			D int
+			E int
+			F int
+			G int
+			H int
+			I int
+			J int
+		}
+		s := make([]tmp, numElems)
+		for i := 0; i < numElems; i++ {
+			s[i] = tmp{
+				A: i, B: i, C: i, D: i, E: i,
+				F: i, G: i, H: i, I: i, J: i,
+			}
+		}
+		return s
+	},
+}
+
+var benchEncStructArrErr error
+
+func BenchmarkEncodeStructArr(b *testing.B) {
+	allNumElems := []int{1, 3, 5, 10, 20, 50, 100}
+	for benchName, newDataFn := range encodeStructArrBenches {
+		b.Run(benchName, func(b *testing.B) {
+			for _, numElems := range allNumElems {
+				var err error
+				b.Run(fmt.Sprintf("num_elems=%d", numElems), func(b *testing.B) {
+					b.StopTimer()
+					data := newDataFn(numElems)
+					b.StartTimer()
+					for i := 0; i < b.N; i++ {
+						_, err = MarshalPDU(data)
+					}
+				})
+				benchEncStructArrErr = err
 			}
 		})
 	}
