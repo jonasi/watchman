@@ -2,6 +2,8 @@ package watchman
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -10,13 +12,9 @@ import (
 	"github.com/jonasi/watchman/bser"
 )
 
-type enc interface {
-	Encode(interface{}) error
-}
-
-type dec interface {
-	Decode(interface{}) error
-}
+var logPDU = func() bool {
+	return os.Getenv("WATCHMAN_LOG_PDU") != ""
+}()
 
 // Error is a Watchman API error
 type Error string
@@ -29,8 +27,8 @@ func (e Error) Error() string {
 type Client struct {
 	Sockname string
 	conn     net.Conn
-	enc      enc
-	dec      dec
+	enc      *bser.Encoder
+	dec      *bser.Decoder
 	initOnce sync.Once
 	initErr  error
 	reqCh    chan request
@@ -60,8 +58,13 @@ func (c *Client) init() error {
 			return
 		}
 
-		c.enc = bser.NewEncoder(c.conn)
-		c.dec = bser.NewDecoder(c.conn)
+		var conn io.ReadWriter = c.conn
+		if logPDU {
+			conn = bser.Tap(c.conn, pduLogger("incoming", os.Stderr), pduLogger("outgoing", os.Stderr))
+		}
+
+		c.enc = bser.NewEncoder(conn)
+		c.dec = bser.NewDecoder(conn)
 
 		c.reqCh = make(chan request)
 		decCh := make(chan interface{})
@@ -190,4 +193,21 @@ type base struct {
 	Version string `bser:"version"`
 	Error   Error  `bser:"error"`
 	Warning string `bser:"warning"`
+}
+
+func pduLogger(dir string, w io.Writer) func([]byte) {
+	return func(b []byte) {
+		var d interface{}
+		if err := bser.UnmarshalValue(b, &d); err != nil {
+			fmt.Fprintf(w, "[pdu logger - %s - bser unmarshal error]: %s\n", dir, err)
+			return
+		}
+		b, err := json.Marshal(d)
+		if err != nil {
+			fmt.Fprintf(w, "[pdu logger - %s - json marshal error]: %s\n", dir, err)
+			return
+		}
+
+		fmt.Fprintf(w, "[pdu logger - %s]: %s\n", dir, string(b))
+	}
 }

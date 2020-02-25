@@ -35,22 +35,8 @@ type Decoder struct {
 // Decode reads the next BSER-encoded value from its
 // input and stores it in the value pointed to by dest.
 func (d *Decoder) Decode(dest interface{}) error {
-	buf := make([]byte, 2)
-	if _, err := d.r.Read(buf); err != nil {
-		return err
-	}
-
-	if !bytes.Equal(buf, protocolPrefix) {
-		return fmt.Errorf("Expected %x, found %x", protocolPrefix, buf)
-	}
-
-	var size int
-	if err := decodeValue(d.r, reflect.ValueOf(&size), nil); err != nil {
-		return err
-	}
-
-	buf = make([]byte, size)
-	if _, err := d.r.Read(buf); err != nil {
+	buf, err := readPDU(d.r)
+	if err != nil {
 		return err
 	}
 
