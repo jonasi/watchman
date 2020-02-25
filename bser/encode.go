@@ -150,19 +150,21 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			}
 			return appendItem(buf, 0x00, b), nil
 		case reflect.Struct:
-			num := r.NumField()
-			b, err := encode(nil, num)
+			exportedFields, err := exportedStructFields(r.Type())
+			if err != nil {
+				return nil, err
+			}
+			b, err := encode(nil, len(exportedFields))
 			if err != nil {
 				return nil, err
 			}
 
-			for i := 0; i < num; i++ {
-				fieldName := r.Type().Field(i).Name
-				b, err = encode(b, fieldName)
+			for _, field := range exportedFields {
+				b, err = encode(b, field.Name)
 				if err != nil {
 					return nil, err
 				}
-				fv := r.Field(i)
+				fv := r.FieldByIndex(field.Index)
 				b, err = encode(b, fv.Interface())
 				if err != nil {
 					return nil, err
@@ -196,18 +198,23 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 
 func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
 	elem := r.Type().Elem()
-	fieldNames := make([]string, elem.NumField())
+	exportedStructFields, err := exportedStructFields(elem)
+	if err != nil {
+		return nil, err
+	}
+	fieldNames := make([]string, len(exportedStructFields))
+
 	b, err := encode(nil, r.Len())
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < r.Len(); i++ {
 		s := r.Index(i)
-		for j := 0; j < s.NumField(); j++ {
+		for j, field := range exportedStructFields {
 			if i == 0 {
-				fieldNames[j] = s.Type().Field(j).Name
+				fieldNames[j] = field.Name
 			}
-			fv := s.Field(j)
+			fv := s.FieldByIndex(field.Index)
 			b, err = encode(b, fv.Interface())
 			if err != nil {
 				return nil, err
@@ -222,6 +229,27 @@ func encodeTemplate(buf []byte, r reflect.Value) ([]byte, error) {
 	b = append(b2, b...)
 
 	return appendItem(buf, 0x0b, b), nil
+}
+
+func exportedStructFields(t reflect.Type) ([]reflect.StructField, error) {
+	if t.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("can't get struct fields from value of kind: %s", t.Kind())
+	}
+
+	var (
+		exported  = []reflect.StructField{}
+		numFields = t.NumField()
+	)
+
+	for i := 0; i < numFields; i++ {
+		field := t.Field(i)
+		// PkgPath empty for exported struct fields - https://golang.org/pkg/reflect/#StructField
+		if field.PkgPath == "" {
+			exported = append(exported, field)
+		}
+	}
+
+	return exported, nil
 }
 
 func isNillable(k reflect.Kind) bool {
