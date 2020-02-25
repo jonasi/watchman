@@ -5,30 +5,93 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 )
 
-// Tap sends all PDUs sent in either direction along rw
+// NewTap sends all PDUs sent in either direction along rw
 // through rfn for reads and wfn for writes
-func Tap(rw io.ReadWriter, rfn func([]byte), wfn func([]byte)) io.ReadWriter {
-	var r io.Reader = rw
-	var w io.Writer = rw
+func NewTap(rw io.ReadWriter, rfn func([]byte), wfn func([]byte)) *Tap {
+	t := &Tap{rw: rw, rfn: rfn, wfn: wfn}
+	t.Tap()
 
-	if rfn != nil {
-		r = io.TeeReader(rw, logWriter(rfn))
-	}
-	if wfn != nil {
-		w = io.MultiWriter(rw, logWriter(wfn))
-	}
-
-	return tap{r, w}
+	return t
 }
 
-type tap struct {
-	io.Reader
-	io.Writer
+// Tap is a io.ReadWriter that will pass data through some additional functions
+type Tap struct {
+	mu       sync.RWMutex
+	rw       io.ReadWriter
+	rfn      func([]byte)
+	wfn      func([]byte)
+	r        io.Reader
+	w        io.Writer
+	tapped   bool
+	cleanups []func()
 }
 
-func logWriter(fn func([]byte)) io.Writer {
+// Tap enables the functionality
+func (t *Tap) Tap() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.tapped {
+		return
+	}
+
+	t.tapped = true
+
+	t.r = t.rw
+	t.w = t.rw
+	t.cleanups = []func(){}
+
+	if t.rfn != nil {
+		lw, cl := t.logWriter(t.rfn)
+		t.r = io.TeeReader(t.rw, lw)
+		t.cleanups = append(t.cleanups, cl)
+	}
+	if t.wfn != nil {
+		lw, cl := t.logWriter(t.wfn)
+		t.w = io.MultiWriter(t.rw, lw)
+		t.cleanups = append(t.cleanups, cl)
+	}
+}
+
+// Untap disables the functionality
+func (t *Tap) Untap() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if !t.tapped {
+		return
+	}
+
+	// reset
+	t.tapped = false
+	t.r = t.rw
+	t.w = t.rw
+
+	for _, fn := range t.cleanups {
+		fn()
+	}
+
+	t.cleanups = nil
+}
+
+func (t *Tap) Read(b []byte) (int, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	return t.r.Read(b)
+}
+
+func (t *Tap) Write(b []byte) (int, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	return t.w.Write(b)
+}
+
+func (t *Tap) logWriter(fn func([]byte)) (io.Writer, func()) {
 	pr, pw := io.Pipe()
 	go func() {
 		for {
@@ -41,7 +104,9 @@ func logWriter(fn func([]byte)) io.Writer {
 		}
 	}()
 
-	return pw
+	return pw, func() {
+		pr.Close()
+	}
 }
 
 func readPDU(r io.Reader) ([]byte, error) {
