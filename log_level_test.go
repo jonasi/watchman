@@ -2,7 +2,7 @@ package watchman
 
 import "testing"
 
-var setLogLevelTests = map[string]struct {
+var logLevelTests = map[string]struct {
 	expectedLevel string
 	expectErr     bool
 }{
@@ -23,8 +23,8 @@ var setLogLevelTests = map[string]struct {
 	},
 }
 
-func TestSetLogLevel(t *testing.T) {
-	for logLevel, testCase := range setLogLevelTests {
+func TestLogLevel(t *testing.T) {
+	for logLevel, testCase := range logLevelTests {
 		t.Run(logLevel, func(t *testing.T) {
 			cl := &Client{Sockname: sock}
 			l, err := cl.LogLevel(logLevel)
