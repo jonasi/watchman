@@ -33,15 +33,26 @@ type Client struct {
 	initOnce sync.Once
 	initErr  error
 	inited   int32
-	reqCh    chan request
+	reqCh    chan interface{}
 	cleanup  func() error
 }
 
-type request struct {
+// request to send an outgoing message
+type sendReq struct {
 	dest  interface{}
 	args  []interface{}
 	errCh chan error
-	uniCh chan bser.RawMessage
+}
+
+// request to listen for uniteral messages
+type recReq struct {
+	rec  chan<- interface{}
+	stop chan struct{}
+}
+
+// request to stop listening for unilateral messages
+type stopReq struct {
+	idx int
 }
 
 func (c *Client) init() error {
@@ -82,7 +93,7 @@ func (c *Client) init() error {
 		c.enc = bser.NewEncoder(conn)
 		c.dec = bser.NewDecoder(conn)
 
-		c.reqCh = make(chan request)
+		c.reqCh = make(chan interface{})
 		decCh := make(chan interface{})
 
 		go c.readPDUs(decCh)
@@ -115,11 +126,16 @@ func (c *Client) readPDUs(ch chan interface{}) {
 	}
 }
 
+type watch struct {
+	sync.RWMutex
+	ch chan<- interface{}
+}
+
 func (c *Client) handleReqs(ch chan interface{}) {
 	var (
-		activeReq  *request
-		queuedReqs = []*request{}
-		watches    = []chan bser.RawMessage{}
+		activeReq  *sendReq
+		queuedReqs = []*sendReq{}
+		watches    = []*watch{}
 	)
 
 	processNext := func() {
@@ -130,10 +146,6 @@ func (c *Client) handleReqs(ch chan interface{}) {
 		activeReq = queuedReqs[0]
 		queuedReqs = queuedReqs[1:]
 
-		if activeReq.uniCh != nil {
-			watches = append(watches, activeReq.uniCh)
-		}
-
 		if err := c.enc.Encode(activeReq.args); err != nil {
 			activeReq.errCh <- err
 			activeReq = nil
@@ -142,20 +154,43 @@ func (c *Client) handleReqs(ch chan interface{}) {
 
 	for {
 		select {
-		case req, ok := <-c.reqCh:
+		case v, ok := <-c.reqCh:
 			if !ok {
 				return
 			}
 
-			queuedReqs = append(queuedReqs, &req)
-			processNext()
+			switch req := v.(type) {
+
+			// send request - add it to the queue of messages
+			// and immediately process
+			case sendReq:
+				queuedReqs = append(queuedReqs, &req)
+				processNext()
+
+			// rec request - add it to our list of watches
+			// and start listen for the stop watching signal
+			case recReq:
+				watches = append(watches, &watch{ch: req.rec})
+				go func(idx int, stop chan struct{}) {
+					<-stop
+					c.reqCh <- stopReq{idx}
+				}(len(watches)-1, req.stop)
+
+			// stop request - remove the watch channel
+			// from the list of channels to watch and close the
+			// channel
+			case stopReq:
+				w := watches[req.idx]
+
+				w.Lock()
+				close(w.ch)
+				w.Unlock()
+
+				watches[req.idx] = nil
+			}
 		case v := <-ch:
 			if activeReq == nil {
-				if msg, ok := v.(bser.RawMessage); ok {
-					for _, w := range watches {
-						w <- msg
-					}
-				}
+				c.handleUnilateral(watches, v)
 				continue
 			}
 
@@ -168,6 +203,49 @@ func (c *Client) handleReqs(ch chan interface{}) {
 			activeReq = nil
 			processNext()
 		}
+	}
+}
+
+func (c *Client) handleUnilateral(watches []*watch, v interface{}) {
+	// should only ever be this...
+	msg, ok := v.(bser.RawMessage)
+	if !ok {
+		return
+	}
+
+	// todo(isao) - add SubscribeEvent here when we add that functionality
+	var data struct {
+		base
+		*LogEvent
+	}
+
+	if err := bser.UnmarshalValue(msg, &data); err != nil {
+		// todo(isao) - log?
+		return
+	}
+
+	var d interface{}
+	if data.LogEvent != nil {
+		d = data.LogEvent
+	}
+
+	if d == nil {
+		// unhandled
+		// todo(isao) - log?
+		return
+	}
+
+	// dispatch msg too all watchers asynchronously
+	for _, w := range watches {
+		if w == nil {
+			continue
+		}
+
+		go func(w *watch, d interface{}) {
+			w.RLock()
+			defer w.RUnlock()
+			w.ch <- d
+		}(w, d)
 	}
 }
 
@@ -204,27 +282,30 @@ func (c *Client) Send(dest interface{}, args ...interface{}) error {
 		return err
 	}
 
-	r := request{args: args, dest: dest, errCh: make(chan error)}
+	r := sendReq{args: args, dest: dest, errCh: make(chan error)}
 	c.reqCh <- r
+
 	return <-r.errCh
 }
 
-// SendAndWatch makes a client call and also listens for all unilateral messages
-func (c *Client) SendAndWatch(ch chan bser.RawMessage, dest interface{}, args ...interface{}) error {
+// Receive listens for unilateral messages from the server on ch.
+func (c *Client) Receive(ch chan<- interface{}) (func(), error) {
 	if err := c.init(); err != nil {
-		return err
+		return nil, err
 	}
 
-	r := request{args: args, dest: dest, errCh: make(chan error), uniCh: ch}
-	c.reqCh <- r
-
-	return <-r.errCh
+	stop := make(chan struct{})
+	c.reqCh <- recReq{rec: ch, stop: stop}
+	return func() {
+		stop <- struct{}{}
+	}, nil
 }
 
 type base struct {
-	Version string `bser:"version"`
-	Error   Error  `bser:"error"`
-	Warning string `bser:"warning"`
+	Version    string `bser:"version"`
+	Error      Error  `bser:"error"`
+	Warning    string `bser:"warning"`
+	Unilateral bool   `bser:"unilateral"`
 }
 
 func pduLogger(dir string, w io.Writer) func([]byte) {
