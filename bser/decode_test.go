@@ -615,6 +615,28 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"struct_field": {
+		encoded: []byte(
+			"\x00\x01\x05*\x00\x00\x00\x01\x03\x03\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x0c\x02\x03\x05Power\x02\x03\x06eating",
+		),
+		expectedData: superperson{Person: Person{Name: "fred", Age: 12}, Power: "eating"},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst superperson
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"ptr_struct_field": {
+		encoded: []byte(
+			"\x00\x01\x05*\x00\x00\x00\x01\x03\x03\x02\x03\x04Name\x02\x03\x04fred\x02\x03\x03Age\x03\x0c\x02\x03\x05Power\x02\x03\x06eating",
+		),
+		expectedData: superperson2{Person: &Person{Name: "fred", Age: 12}, Power: "eating"},
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst superperson2
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 }
 
 func TestDecode(t *testing.T) {

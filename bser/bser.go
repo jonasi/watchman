@@ -83,8 +83,13 @@ func fields(t reflect.Type) structFields {
 				Index: idx,
 			}
 
+			typ := f.Type
+			if typ.Kind() == reflect.Ptr {
+				typ = typ.Elem()
+			}
+
 			if f.Anonymous {
-				typs = append(typs, ftyp{f.Type, idx})
+				typs = append(typs, ftyp{typ, idx})
 			}
 		}
 	}

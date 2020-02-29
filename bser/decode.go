@@ -227,7 +227,7 @@ func decodeObject(r io.Reader, dest reflect.Value, buf *[]byte) error {
 				return fmt.Errorf("Field %s not found", field)
 			}
 
-			if err := decodeValue(r, dest.FieldByIndex(f.Index).Addr(), buf); err != nil {
+			if err := decodeValue(r, fieldByIndex(dest, f.Index).Addr(), buf); err != nil {
 				return err
 			}
 		}
@@ -514,4 +514,24 @@ func canSetFloat(v reflect.Value) bool {
 // canSetBool checks if we can call SetBool() on v - https://golang.org/pkg/reflect/#Value.SetBool
 func canSetBool(v reflect.Value) bool {
 	return v.CanSet() && v.Kind() == reflect.Bool
+}
+
+// this is a copy of reflect.Value.FieldByIndex but will create values as it encounters nil ptrs
+func fieldByIndex(v reflect.Value, index []int) reflect.Value {
+	if len(index) == 1 {
+		return v.Field(index[0])
+	}
+
+	for _, x := range index {
+		f := v.Field(x)
+		if f.Kind() == reflect.Ptr {
+			if f.IsNil() {
+				f.Set(reflect.New(f.Type().Elem()))
+			}
+
+			f = f.Elem()
+		}
+		v = f
+	}
+	return v
 }

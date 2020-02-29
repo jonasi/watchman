@@ -160,6 +160,7 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			}
 
 			for _, field := range exportedFields {
+				// todo(isao) - need to handle embedded structs
 				b, err = encode(b, field.Name)
 				if err != nil {
 					return nil, err
