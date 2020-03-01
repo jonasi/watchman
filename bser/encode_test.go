@@ -19,6 +19,18 @@ type student struct {
 	grade int
 }
 
+type Person person
+
+type superperson struct {
+	Person
+	Power string
+}
+
+type superperson2 struct {
+	*Person
+	Power string
+}
+
 type unencodable struct {
 	C chan string
 }
