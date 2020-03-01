@@ -8,6 +8,7 @@ type WatchProject struct {
 }
 
 // WatchProject requests that the project containing the requested dir is watched for changes
+// https://facebook.github.io/watchman/docs/cmd/watch-project.html
 func (c *Client) WatchProject(path string) (*WatchProject, error) {
 	var data struct {
 		WatchProject
