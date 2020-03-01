@@ -143,11 +143,12 @@ func decodeArray(r io.Reader, dest reflect.Value, buf *[]byte) error {
 	}
 
 	for i := 0; i < length; i++ {
-		if i >= dest.Len() {
-			continue
-		}
-		v := emptyValue
-		if dest != emptyValue {
+		var (
+			noset = dest == emptyValue || i >= dest.Len()
+			v     = emptyValue
+		)
+
+		if !noset {
 			v = reflect.New(dest.Type().Elem())
 		}
 
@@ -155,7 +156,7 @@ func decodeArray(r io.Reader, dest reflect.Value, buf *[]byte) error {
 			return err
 		}
 
-		if dest != emptyValue {
+		if !noset {
 			dest.Index(i).Set(v.Elem())
 		}
 	}

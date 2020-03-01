@@ -637,6 +637,20 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"raw_message_slice": {
+		// this is just an array of strings: ["ok", "there"]
+		encoded: []byte(
+			"\x00\x01\x05\x1c\x00\x00\x00\x01\x03\x01\x02\x03\x06Values\x00\x03\x02\x02\x03\x02ok\x02\x03\x05there",
+		),
+		expectedData: RawMessage([]byte(
+			"\x01\x03\x01\x02\x03\x06Values\x00\x03\x02\x02\x03\x02ok\x02\x03\x05there",
+		)),
+		doDecode: func(dec *Decoder) (interface{}, error) {
+			var v RawMessage
+			err := dec.Decode(&v)
+			return v, err
+		},
+	},
 }
 
 func TestDecode(t *testing.T) {
