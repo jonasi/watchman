@@ -2,12 +2,14 @@ package watchman
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jonasi/watchman/bser"
 )
@@ -26,12 +28,13 @@ func (e Error) Error() string {
 // Client is a watchman client
 type Client struct {
 	Sockname string
-	conn     net.Conn
 	enc      *bser.Encoder
 	dec      *bser.Decoder
 	initOnce sync.Once
 	initErr  error
+	inited   int32
 	reqCh    chan request
+	cleanup  func() error
 }
 
 type request struct {
@@ -43,6 +46,11 @@ type request struct {
 
 func (c *Client) init() error {
 	c.initOnce.Do(func() {
+		if !atomic.CompareAndSwapInt32(&c.inited, 0, 1) {
+			c.initErr = errors.New("Cannot call send on a closed client")
+			return
+		}
+
 		var err error
 		if c.Sockname == "" {
 			c.Sockname, err = inferSockname()
@@ -52,15 +60,23 @@ func (c *Client) init() error {
 			}
 		}
 
-		c.conn, err = initSock(c.Sockname)
+		sconn, err := initSock(c.Sockname)
 		if err != nil {
 			c.initErr = err
 			return
 		}
 
-		var conn io.ReadWriter = c.conn
+		c.cleanup = sconn.Close
+		var conn io.ReadWriter = sconn
+
 		if logPDU {
-			conn = bser.Tap(c.conn, pduLogger("incoming", os.Stderr), pduLogger("outgoing", os.Stderr))
+			tap := bser.NewTap(conn, pduLogger("incoming", os.Stderr), pduLogger("outgoing", os.Stderr))
+			c.cleanup = func() error {
+				tap.Untap()
+				return sconn.Close()
+			}
+
+			conn = tap
 		}
 
 		c.enc = bser.NewEncoder(conn)
@@ -74,6 +90,18 @@ func (c *Client) init() error {
 	})
 
 	return c.initErr
+}
+
+// Close closes the connection to the watchman server
+func (c *Client) Close() error {
+	if !atomic.CompareAndSwapInt32(&c.inited, 1, 2) {
+		// never been opened!
+		return nil
+	}
+
+	close(c.reqCh)
+
+	return c.cleanup()
 }
 
 func (c *Client) readPDUs(ch chan interface{}) {
@@ -114,7 +142,11 @@ func (c *Client) handleReqs(ch chan interface{}) {
 
 	for {
 		select {
-		case req := <-c.reqCh:
+		case req, ok := <-c.reqCh:
+			if !ok {
+				return
+			}
+
 			queuedReqs = append(queuedReqs, &req)
 			processNext()
 		case v := <-ch:
