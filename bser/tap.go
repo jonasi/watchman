@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
+	"runtime/debug"
 	"sync"
 )
 
@@ -100,7 +102,15 @@ func (t *Tap) logWriter(fn func([]byte)) (io.Writer, func()) {
 				return
 			}
 
-			fn(buf)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Fprintf(os.Stderr, "Tap Panic Recovery: %s\n%s\n", r, debug.Stack())
+					}
+				}()
+
+				fn(buf)
+			}()
 		}
 	}()
 
