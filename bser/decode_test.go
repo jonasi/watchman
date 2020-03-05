@@ -304,6 +304,15 @@ var decodeTests = map[string]decodeTest{
 			return dst, err
 		},
 	},
+	"custom_unmarshaler": {
+		encoded:      []byte("\x00\x01\x03\x02\x03\x7b"),
+		expectedData: customEncoding("123"),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst customEncoding
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
 	"invalid_size_type_identifier": {
 		encoded: []byte(
 			"\x00\x01\xff\x02\x03\x10", // encoded 16 with int8 type in header replaced with 0xff
@@ -766,6 +775,24 @@ var decodeBenches = map[string]decodeBench{
 		),
 		doDecode: func(decoder *Decoder) (interface{}, error) {
 			dst := map[string]bool{}
+			err := decoder.Decode(&dst)
+			return dst, err
+		},
+	},
+	"raw_message_slice": {
+		encoded: []byte(
+			"\x00\x01\x05\x1c\x00\x00\x00\x01\x03\x01\x02\x03\x06Values\x00\x03\x02\x02\x03\x02ok\x02\x03\x05there",
+		),
+		doDecode: func(dec *Decoder) (interface{}, error) {
+			var v RawMessage
+			err := dec.Decode(&v)
+			return v, err
+		},
+	},
+	"custom_unmarshaler": {
+		encoded: []byte("\x00\x01\x03\x02\x03\x7b"),
+		doDecode: func(decoder *Decoder) (interface{}, error) {
+			var dst customEncoding
 			err := decoder.Decode(&dst)
 			return dst, err
 		},

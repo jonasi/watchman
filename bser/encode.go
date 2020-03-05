@@ -100,6 +100,15 @@ func encode(buf []byte, d interface{}) ([]byte, error) {
 			return appendItem(buf, 0x0A, nil), nil
 		}
 
+		if r.Type().Implements(typMarshaler) {
+			m := r.Interface().(Marshaler)
+			b, err := m.MarshalBSER()
+			if err != nil {
+				return nil, err
+			}
+			return append(buf, b...), nil
+		}
+
 		elem := false
 		for r.Kind() == reflect.Ptr || r.Kind() == reflect.Interface {
 			r = r.Elem()
