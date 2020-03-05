@@ -81,16 +81,18 @@ func (t *Tap) Untap() {
 
 func (t *Tap) Read(b []byte) (int, error) {
 	t.mu.RLock()
-	defer t.mu.RUnlock()
+	r := t.r
+	t.mu.RUnlock()
 
-	return t.r.Read(b)
+	return r.Read(b)
 }
 
 func (t *Tap) Write(b []byte) (int, error) {
 	t.mu.RLock()
-	defer t.mu.RUnlock()
+	w := t.w
+	t.mu.RUnlock()
 
-	return t.w.Write(b)
+	return w.Write(b)
 }
 
 func (t *Tap) logWriter(fn func([]byte)) (io.Writer, func()) {
