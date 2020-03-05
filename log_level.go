@@ -12,6 +12,12 @@ type LogLevel struct {
 	LogLevel string `bser:"log_level"`
 }
 
+// LogEvent is the event sent for log messages
+type LogEvent struct {
+	Level string `bser:"level"`
+	Log   string `bser:"log"`
+}
+
 // LogLevel changes the log level of the connection
 // https://facebook.github.io/watchman/docs/cmd/log-level.html
 func (c *Client) LogLevel(level string) (*LogLevel, error) {

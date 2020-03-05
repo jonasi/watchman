@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/jonasi/watchman"
-	"github.com/jonasi/watchman/bser"
 	"github.com/spf13/cobra"
 )
 
@@ -67,19 +66,23 @@ func doSendPersistent(js string) error {
 
 	var (
 		out interface{}
-		ch  = make(chan bser.RawMessage)
+		ch  = make(chan interface{})
 	)
 
 	go func() {
 		for msg := range ch {
-			var v interface{}
-			bser.UnmarshalValue(msg, &v)
-			b, _ := json.MarshalIndent(v, "", "    ")
+			b, _ := json.MarshalIndent(msg, "", "    ")
 			_, _ = fmt.Fprint(os.Stdout, string(b)+"\n")
 		}
 	}()
 
-	if err := cl.SendAndWatch(ch, &out, in...); err != nil {
+	if err := cl.Send(&out, in...); err != nil {
+		return err
+	}
+
+	stop, err := cl.Receive(ch)
+	defer stop()
+	if err != nil {
 		return err
 	}
 
