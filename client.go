@@ -128,7 +128,8 @@ func (c *Client) readPDUs(ch chan interface{}) {
 
 type watch struct {
 	sync.RWMutex
-	ch chan<- interface{}
+	ch     chan<- interface{}
+	closed bool
 }
 
 func (c *Client) handleReqs(ch chan interface{}) {
@@ -184,6 +185,7 @@ func (c *Client) handleReqs(ch chan interface{}) {
 
 				w.Lock()
 				close(w.ch)
+				w.closed = true
 				w.Unlock()
 
 				watches[req.idx] = nil
@@ -244,6 +246,10 @@ func (c *Client) handleUnilateral(watches []*watch, v interface{}) {
 		go func(w *watch, d interface{}) {
 			w.RLock()
 			defer w.RUnlock()
+			if w.closed {
+				return
+			}
+
 			w.ch <- d
 		}(w, d)
 	}
