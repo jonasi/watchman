@@ -17,11 +17,11 @@ go bindings for [watchman](https://facebook.github.io/watchman/).
 | since | ❌ |  |
 | state-enter | ❌ |  |
 | state-leave | ❌ |  |
-| subscribe | ❌ |  |
+| subscribe | ✅ |  |
 | trigger | ❌ |  |
 | trigger-del | ❌ |  |
 | trigger-list | ❌ |  |
-| unsubscribe | ❌ |  |
+| unsubscribe | ✅|  |
 | version | ✅ |  |
 | watch | ✅ |  |
 | watch-del | ✅ |  |
