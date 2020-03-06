@@ -43,6 +43,25 @@ type int64Alias int64
 type intAlias int
 type boolAlias bool
 
+type customEncoding string
+
+func (c customEncoding) MarshalBSER() ([]byte, error) {
+	i, err := strconv.Atoi(string(c))
+	if err != nil {
+		return nil, err
+	}
+	return MarshalValue(i)
+}
+
+func (c *customEncoding) UnmarshalBSER(b []byte) error {
+	var i int
+	if err := UnmarshalValue(b, &i); err != nil {
+		return err
+	}
+	*c = customEncoding(strconv.Itoa(i))
+	return nil
+}
+
 type encodeTest struct {
 	data        interface{}
 	expectedEnc []byte
@@ -335,6 +354,30 @@ var encodeTests = map[string]encodeTest{
 			0x03, 0x19,
 		},
 	},
+	"raw_message_slice": {
+		// this is just an array of strings: ["ok", "there"]
+		data: RawMessage([]byte(
+			"\x01\x03\x01\x02\x03\x06Values\x00\x03\x02\x02\x03\x02ok\x02\x03\x05there",
+		)),
+		expectedEnc: []byte(
+			"\x00\x01\x03\x1c\x01\x03\x01\x02\x03\x06Values\x00\x03\x02\x02\x03\x02ok\x02\x03\x05there",
+		),
+	},
+	"custom_marshaller": {
+		data:        customEncoding("123"),
+		expectedEnc: []byte("\x00\x01\x03\x02\x03\x7b"), // int instead of string due to custom marshal function
+	},
+	"map_string_custom_marshaller": {
+		data: map[string]customEncoding{
+			"a": customEncoding("123"),
+			"b": customEncoding("456"),
+		},
+		expectedEnc: []byte("\x00\x01\x03\x10\x01\x03\x02\x02\x03\x01a\x03{\x02\x03\x01b\x04\xc8\x01"),
+	},
+	"custom_marshaller_fails": {
+		data:      customEncoding("abc"), // custom marshal returns error if can't convert string to int
+		expectErr: true,
+	},
 	"map_str_chan": {
 		data: map[string]chan string{
 			"a": make(chan string),
@@ -392,6 +435,7 @@ func testEncode(t *testing.T, testCase encodeTest) {
 
 var encoderBenches = map[string]interface{}{
 	"single_2_field_object": person{Name: "fred", Age: 20},
+	"custom_marshaler":      customEncoding("123"),
 }
 
 var benchEncErr error
